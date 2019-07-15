@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/gobwas/glob"
+	"strings"
 )
 
 type HostMap map[string]string
@@ -16,6 +17,9 @@ type CompiledHostMap []CompiledHost
 
 func (m HostMap) Compile() (c CompiledHostMap, err error) {
 	for k, v := range m {
+		if !strings.HasSuffix(k, ".") {
+			k = k + "."
+		}
 		g, err := glob.Compile(k, '.')
 		if err != nil {
 			return c, err

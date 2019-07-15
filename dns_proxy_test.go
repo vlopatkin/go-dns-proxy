@@ -34,7 +34,7 @@ func TestGetResponse_LocalResolve(t *testing.T) {
 		},
 		Question: []dns.Question{
 			dns.Question{
-				Name:  "test.com",
+				Name:  "test.com.",
 				Qtype: dns.TypeA,
 			},
 		},
@@ -67,7 +67,7 @@ func TestGetResponse_RerouteRequest(t *testing.T) {
 		},
 		Question: []dns.Question{
 			dns.Question{
-				Name:  "test.com",
+				Name:  "test.com.",
 				Qtype: dns.TypeA,
 			},
 		},
@@ -99,7 +99,7 @@ func TestGetResponse_GlobCheck(t *testing.T) {
 		},
 		Question: []dns.Question{
 			dns.Question{
-				Name:  "yo.test.com",
+				Name:  "yo.test.com.",
 				Qtype: dns.TypeA,
 			},
 		},
