@@ -1,6 +1,9 @@
 # DNS Proxy
 A simple DNS proxy written in go based on [github.com/miekg/dns](https://github.com/miekg/dns)
 
+[![CircleCI](https://circleci.com/gh/vlopatkin/go-dns-proxy.svg?style=svg)](https://circleci.com/gh/vlopatkin/go-dns-proxy)
+[![Docker Build](https://img.shields.io/docker/build/vlopatkin/go-dns-proxy.svg)](https://hub.docker.com/r/vlopatkin/go-dns-proxy)
+
 ## How to use it
 
 
