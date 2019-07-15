@@ -79,5 +79,5 @@ func TestCache_Get_SliceExpire(t *testing.T) {
 		sliceCount++
 	}
 
-	assert.Less(t, sliceCount, 3)
+	assert.True(t, sliceCount < 3, "slicecount %d, expected less than 3", sliceCount)
 }

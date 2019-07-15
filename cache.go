@@ -46,17 +46,24 @@ func (cache *Cache) Get(k string) (interface{}, bool) {
 	slice := cache.slice
 	cache.m.RUnlock()
 
-	for ; slice != nil; slice = slice.next {
-		element, found := slice.get(k)
+	for slice != nil {
+		slice.mutex.RLock()
+		element, found := slice.elements[k]
+		next := slice.next
+		slice.mutex.RUnlock()
+
 		if found {
 			if cache.expiration > 0 {
 				if cache.now().Sub(element.Added) < cache.expiration {
 					return element.Value, true
 				}
+				// older slices could not contain non expired entry for the key anyway
+				return nil, false
 			} else {
 				return element.Value, true
 			}
 		}
+		slice = next
 	}
 
 	return nil, false
@@ -70,30 +77,23 @@ func (cache *Cache) Set(k string, v interface{}) {
 	now := cache.now()
 
 	cache.m.RLock()
-	if cache.expiration > 0 {
-		if cache.slice.len() >= sliceSize {
-			cache.m.RUnlock()
-
-			slice := newCacheSlice(cache.now())
-			cache.m.Lock()
-			var sliceToClean *CacheSlice = nil
-			if cache.slice.len() >= sliceSize {
-				slice.next = cache.slice
-				cache.slice = slice
-				sliceToClean = slice.next
-			}
-
-			cache.m.Unlock()
-
-			if sliceToClean != nil {
-				go sliceToClean.cleanup(now, cache.expiration)
-			}
-
-			cache.m.RLock()
-		}
-	}
 	slice := cache.slice
 	cache.m.RUnlock()
+
+	if cache.expiration > 0 {
+		if slice.len() >= sliceSize {
+			newSlice := newCacheSlice(cache.now())
+
+			cache.m.Lock()
+			if slice == cache.slice && cache.slice.len() >= sliceSize {
+				newSlice.next = cache.slice
+				cache.slice = newSlice
+				go slice.cleanup(now, cache.expiration)
+				slice = cache.slice
+			}
+			cache.m.Unlock()
+		}
+	}
 
 	slice.mutex.Lock()
 	slice.elements[k] = Element{
@@ -106,14 +106,6 @@ func (cache *Cache) Set(k string, v interface{}) {
 
 func newCacheSlice(now time.Time) *CacheSlice {
 	return &CacheSlice{elements: make(map[string]Element, sliceSize+5), lastUpdate: now}
-}
-
-func (slice *CacheSlice) get(key string) (Element, bool) {
-	slice.mutex.RLock()
-	element, found := slice.elements[key]
-	slice.mutex.RUnlock()
-
-	return element, found
 }
 
 func (slice *CacheSlice) len() int {
@@ -134,23 +126,24 @@ func (slice *CacheSlice) cleanup(now time.Time, expiration time.Duration) bool {
 	}
 
 	slice.mutex.RLock()
-	nextIsEmpty := slice.next == nil || slice.next.cleanup(now, expiration)
-	freeToClean := now.Sub(slice.lastUpdate) > expiration
+	nextSlice := slice.next
+	isExpired := now.Sub(slice.lastUpdate) > expiration
 	slice.mutex.RUnlock()
 
-	slice.mutex.Lock()
-	if nextIsEmpty && slice.next != nil {
-		m := slice.next.mutex
-		m.Lock()
-		slice.next = slice.next.next
-		m.Unlock()
-	}
-	if freeToClean {
-		for k, _ := range slice.elements {
-			delete(slice.elements, k)
-		}
-	}
-	slice.mutex.Unlock()
+	nextIsEmpty := nextSlice == nil || nextSlice.cleanup(now, expiration)
 
-	return freeToClean && nextIsEmpty
+	if (nextIsEmpty && nextSlice != nil) || isExpired {
+		slice.mutex.Lock()
+		if nextIsEmpty {
+			slice.next = nil
+		}
+		if isExpired {
+			for k, _ := range slice.elements {
+				delete(slice.elements, k)
+			}
+		}
+		slice.mutex.Unlock()
+	}
+
+	return isExpired && nextIsEmpty
 }
