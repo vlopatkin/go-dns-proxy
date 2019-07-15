@@ -7,19 +7,19 @@ import (
 
 type Element struct {
 	Value     interface{}
-	TimeAdded int64
+	TimeAdded time.Time
 }
 
 type Cache struct {
-	elements       map[string]Element
-	mutex          sync.RWMutex
-	expirationTime int64
+	elements   map[string]Element
+	mutex      sync.RWMutex
+	expiration time.Duration
 }
 
-func InitCache(expirationTime int64) Cache {
+func InitCache(expiration time.Duration) Cache {
 	return Cache{
-		elements:       make(map[string]Element),
-		expirationTime: expirationTime,
+		elements:   make(map[string]Element),
+		expiration: expiration,
 	}
 }
 
@@ -31,8 +31,8 @@ func (cache *Cache) Get(k string) (interface{}, bool) {
 		cache.mutex.RUnlock()
 		return "", false
 	}
-	if cache.expirationTime > 0 {
-		if time.Now().UnixNano()-cache.expirationTime > element.TimeAdded {
+	if cache.expiration > 0 {
+		if time.Since(element.TimeAdded) > cache.expiration {
 			cache.mutex.RUnlock()
 			return "", false
 		}
@@ -47,7 +47,7 @@ func (cache *Cache) Set(k string, v interface{}) {
 
 	cache.elements[k] = Element{
 		Value:     v,
-		TimeAdded: time.Now().UnixNano(),
+		TimeAdded: time.Now(),
 	}
 
 	cache.mutex.Unlock()

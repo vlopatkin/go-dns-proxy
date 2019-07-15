@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"time"
 )
 
 type Config struct {
 	DNSConfigs      map[string]interface{}
-	CacheExpiration int64
+	CacheExpiration time.Duration
 	UseOutbound     bool
 	LogLevel        string
 }
@@ -36,7 +37,7 @@ func InitConfig() (Config, error) {
 
 	return Config{
 		DNSConfigs:      dnsConfigs,
-		CacheExpiration: *expiration * 1000000000,
+		CacheExpiration: time.Duration(*expiration) * time.Second,
 		UseOutbound:     *useOutbound,
 		LogLevel:        *logLevel,
 	}, nil
