@@ -7,7 +7,7 @@ A simple DNS proxy written in go based on [github.com/miekg/dns](https://github.
 ## Docker
 
 ```shell
-$ docker run -p 53:53/udp katakonst/go-dns-proxy:latest -use-outbound -json-config='{
+$ docker run -p 53:53/udp vlopatkin/go-dns-proxy:latest -use-outbound -json-config='{
     "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
@@ -20,12 +20,12 @@ $ docker run -p 53:53/udp katakonst/go-dns-proxy:latest -use-outbound -json-conf
 
 ## Download executables
 
-[Download](https://github.com/katakonst/go-dns-proxy/releases)
+[Download](https://github.com/vlopatkin/go-dns-proxy/releases)
 
 ## Go get
 
 ```shell
-$ go get github.com/katakonst/go-dns-proxy
+$ go get github.com/vlopatkin/go-dns-proxy
 $ go-dns-proxy -use-outbound -json-config='{
     "default_dns": "8.8.8.8:53",
     "servers": {
