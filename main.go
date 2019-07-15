@@ -13,7 +13,7 @@ func main() {
 		log.Fatalf("Failed to load configs: %s", err)
 	}
 
-	dnsCache := InitCache(appConfigs.CacheExpiration)
+	dnsCache := NewCache(appConfigs.CacheExpiration)
 	domains, err := appConfigs.DNSConfigs.Domains.Compile()
 	if err != nil {
 		log.Fatalf("Failed to parse domains: %s", err)
