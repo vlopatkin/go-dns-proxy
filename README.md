@@ -40,16 +40,18 @@ $ go-dns-proxy -use-outbound -json-config='{
 ## Arguments
 
 ```
-    -expiration int
-      	cache expiration time in seconds (default -1)
-    -file string
-      	config filename (default "config.json")
-    -json-config string
-      	config in json format
-    -log-level string
-      	log level, accepts err, info, none (default "info")
-    -use-outbound
-      	use outbound address of the host for incoming connections
+  -expiration int
+    	cache expiration time in seconds (default -1)
+  -file string
+    	config filename (default "config.json")
+  -json-config string
+    	config in json format
+  -log-level string
+    	log level, accepts err, info, none (default "info")
+  -port int
+    	UDP port, use with use-outbound flag (default 53)
+  -use-outbound
+    	use outbound address of the host for incoming connections
 ```
 
 ## Config file format

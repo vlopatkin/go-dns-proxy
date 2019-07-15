@@ -37,7 +37,7 @@ func main() {
 		if err != nil {
 			logger.Fatalf("Failed to get outbound address: %s\n ", err.Error())
 		}
-		host = ip.String() + ":53"
+		host = fmt.Sprintf("%s:%d", ip, appConfigs.Port)
 	}
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
