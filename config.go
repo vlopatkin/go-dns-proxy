@@ -23,9 +23,9 @@ type Config struct {
 
 func InitConfig() (Config, error) {
 	fileName := flag.String("file", "config.json", "config filename")
-	logLevel := flag.String("log-level", "info", "log level")
-	expiration := flag.Int64("expiration", -1, "expiration time in seconds")
-	useOutbound := flag.Bool("use-outbound", false, "use outbound address")
+	logLevel := flag.String("log-level", "info", "log level, accepts err, info, none")
+	expiration := flag.Int64("expiration", -1, "cache expiration time in seconds")
+	useOutbound := flag.Bool("use-outbound", false, "use outbound address of the host for incoming connections")
 	cliConfigs := flag.String("json-config", "", "config in json format")
 	flag.Parse()
 

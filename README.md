@@ -8,12 +8,12 @@ A simple DNS proxy written in go based on [github.com/miekg/dns](https://github.
 
 ```shell
 $ docker run -p 53:53/udp katakonst/go-dns-proxy:latest -use-outbound -json-config='{
-    "defaultDns": "8.8.8.8:53",
+    "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
     },
     "domains": {
-        "test.com" : "8.8.8.8"
+        "**.test.com" : "127.0.0.1"
     }
 }'
 ```
@@ -27,12 +27,12 @@ $ docker run -p 53:53/udp katakonst/go-dns-proxy:latest -use-outbound -json-conf
 ```shell
 $ go get github.com/katakonst/go-dns-proxy
 $ go-dns-proxy -use-outbound -json-config='{
-    "defaultDns": "8.8.8.8:53",
+    "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
     },
     "domains": {
-        "test.com" : "8.8.8.8"
+        "**.test.com" : "127.0.0.1"
     }
 }'
 ```
@@ -40,24 +40,29 @@ $ go-dns-proxy -use-outbound -json-config='{
 ## Arguments
 
 ```
-	-file		 config filename
-	-log-level	 log level(info,error or discard)
-	-expiration      cache expiration time in seconds
-	-use-outbound	 use outbound address as host for server
-        -config-json     configs as json
+    -expiration int
+      	cache expiration time in seconds (default -1)
+    -file string
+      	config filename (default "config.json")
+    -json-config string
+      	config in json format
+    -log-level string
+      	log level, accepts err, info, none (default "info")
+    -use-outbound
+      	use outbound address of the host for incoming connections
 ```
 
 ## Config file format
 
 ```json
 {
-    "host": "192.168.1.4:53",
-    "defaultDns": "8.8.8.8:53",
+    "host": "localhost:35353",
+    "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
     },
     "domains": {
-        ".*.com" : "8.8.8.8"
+        "**.test.com" : "127.0.0.1"
     }
 }
 ```

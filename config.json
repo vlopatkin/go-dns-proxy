@@ -1,5 +1,5 @@
 {
-    "host": "localhost:15353",
+    "host": "localhost:35353",
     "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
