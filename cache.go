@@ -24,31 +24,36 @@ func InitCache(expiration time.Duration) Cache {
 }
 
 func (cache *Cache) Get(k string) (interface{}, bool) {
+	if cache == nil {
+		return nil, false
+	}
+
 	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
 
 	element, found := cache.elements[k]
 	if !found {
-		cache.mutex.RUnlock()
 		return "", false
 	}
 	if cache.expiration > 0 {
 		if time.Since(element.TimeAdded) > cache.expiration {
-			cache.mutex.RUnlock()
 			return "", false
 		}
 	}
 
-	cache.mutex.RUnlock()
 	return element.Value, true
 }
 
 func (cache *Cache) Set(k string, v interface{}) {
+	if cache == nil {
+		return
+	}
+
 	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 
 	cache.elements[k] = Element{
 		Value:     v,
 		TimeAdded: time.Now(),
 	}
-
-	cache.mutex.Unlock()
 }
