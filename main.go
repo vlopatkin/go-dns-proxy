@@ -1,8 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"regexp"
+	"net"
 
 	"github.com/miekg/dns"
 )
@@ -50,12 +51,19 @@ func main() {
 				w.WriteMsg(m)
 				return
 			}
-			if len(m.Answer) > 0 {
-				pattern := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
-				ipAddress := pattern.FindAllString(m.Answer[0].String(), -1)
+			if len(m.Answer) > 0 && logger.level >= infoLevel {
+				var ip net.IP = nil
+				switch a := m.Answer[0].(type) {
+				case *dns.A:
+					ip = a.A
+				case *dns.AAAA:
+					ip = a.AAAA
+				case *dns.L32:
+					ip = a.Locator32
+				}
 
-				if len(ipAddress) > 0 {
-					logger.Infof("Lookup for %s with ip %s\n", m.Answer[0].Header().Name, ipAddress[0])
+				if len(ip) > 0 {
+					logger.Infof("Lookup for %s with ip %s\n", m.Answer[0].Header().Name, ip)
 				} else {
 					logger.Infof("Lookup for %s with response %s\n", m.Answer[0].Header().Name, m.Answer[0])
 				}
