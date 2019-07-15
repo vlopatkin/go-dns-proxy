@@ -14,26 +14,30 @@ func main() {
 	}
 
 	dnsCache := InitCache(appConfigs.CacheExpiration)
-	domains, _ := appConfigs.DNSConfigs["domains"]
-	servers, _ := appConfigs.DNSConfigs["servers"]
+	domains, err := appConfigs.DNSConfigs.Domains.Compile()
+	if err != nil {
+		log.Fatalf("Failed to parse domains: %s", err)
+	}
+	servers, err := appConfigs.DNSConfigs.Servers.Compile()
+	if err != nil {
+		log.Fatalf("Failed to parse servers: %s", err)
+	}
 
-	dnsProxy := DNSProxy{
+	dnsProxy := DnsProxy{
 		Cache:         &dnsCache,
-		domains:       domains.(map[string]interface{}),
-		servers:       servers.(map[string]interface{}),
-		defaultServer: appConfigs.DNSConfigs["defaultDns"].(string),
+		domains:       domains,
+		servers:       servers,
+		defaultServer: appConfigs.DNSConfigs.DefaultDns,
 	}
 
 	logger := NewLogger(appConfigs.LogLevel)
-	host := ""
-	if appConfigs.UseOutbound {
+	host := appConfigs.DNSConfigs.Host
+	if host == "" || appConfigs.UseOutbound {
 		ip, err := GetOutboundIP()
 		if err != nil {
 			logger.Fatalf("Failed to get outbound address: %s\n ", err.Error())
 		}
 		host = ip.String() + ":53"
-	} else {
-		host = appConfigs.DNSConfigs["host"].(string)
 	}
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {

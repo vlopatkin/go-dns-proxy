@@ -3,24 +3,28 @@ package main
 import (
 	"fmt"
 	"net"
-	"regexp"
 
 	"github.com/miekg/dns"
 )
 
-type DNSProxy struct {
+type DnsApi interface {
+	Exchange(m *dns.Msg, server string) (r *dns.Msg, err error)
+}
+
+type DnsProxy struct {
+	DnsApi
 	Cache         *Cache
-	domains       map[string]interface{}
-	servers       map[string]interface{}
+	domains       CompiledHostMap
+	servers       CompiledHostMap
 	defaultServer string
 }
 
-func (proxy *DNSProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
+func (proxy *DnsProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
 	responseMsg := new(dns.Msg)
 	if len(requestMsg.Question) > 0 {
 		question := requestMsg.Question[0]
 
-		dnsServer := proxy.getIPFromConfigs(question.Name, proxy.servers)
+		dnsServer := proxy.servers.Find(question.Name)
 		if dnsServer == "" {
 			dnsServer = proxy.defaultServer
 		}
@@ -45,12 +49,12 @@ func (proxy *DNSProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
 	return responseMsg, nil
 }
 
-func (proxy *DNSProxy) processOtherTypes(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
+func (proxy *DnsProxy) processOtherTypes(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
 	queryMsg := new(dns.Msg)
 	requestMsg.CopyTo(queryMsg)
 	queryMsg.Question = []dns.Question{*q}
 
-	msg, err := lookup(dnsServer, queryMsg)
+	msg, err := proxy.lookup(dnsServer, queryMsg)
 	if err != nil {
 		return nil, err
 	}
@@ -61,16 +65,19 @@ func (proxy *DNSProxy) processOtherTypes(dnsServer string, q *dns.Question, requ
 	return nil, fmt.Errorf("not found")
 }
 
-func (proxy *DNSProxy) processTypeA(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
-	ip := proxy.getIPFromConfigs(q.Name, proxy.domains)
+func (proxy *DnsProxy) processTypeA(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
+	var ip string
 	cacheMsg, found := proxy.Cache.Get(q.Name)
+	if !found {
+		ip = proxy.domains.Find(q.Name)
+	}
 
 	if ip == "" && !found {
 		queryMsg := new(dns.Msg)
 		requestMsg.CopyTo(queryMsg)
 		queryMsg.Question = []dns.Question{*q}
 
-		msg, err := lookup(dnsServer, queryMsg)
+		msg, err := proxy.lookup(dnsServer, queryMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -93,15 +100,12 @@ func (proxy *DNSProxy) processTypeA(dnsServer string, q *dns.Question, requestMs
 	return nil, fmt.Errorf("not found")
 }
 
-func (dnsProxy *DNSProxy) getIPFromConfigs(domain string, configs map[string]interface{}) string {
-
-	for k, v := range configs {
-		match, _ := regexp.MatchString(k+"\\.", domain)
-		if match {
-			return v.(string)
-		}
+func (proxy *DnsProxy) lookup(server string, requestMsg *dns.Msg) (r *dns.Msg, err error) {
+	api := proxy.DnsApi
+	if api == nil {
+		api = defaultApi
 	}
-	return ""
+	return api.Exchange(requestMsg, server)
 }
 
 func GetOutboundIP() (net.IP, error) {
@@ -117,13 +121,11 @@ func GetOutboundIP() (net.IP, error) {
 	return localAddr.IP, nil
 }
 
-func lookup(server string, m *dns.Msg) (*dns.Msg, error) {
-	dnsClient := new(dns.Client)
-	dnsClient.Net = "udp"
-	response, _, err := dnsClient.Exchange(m, server)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+type DefaultApi struct {
 }
+
+func (*DefaultApi) Exchange(m *dns.Msg, a string) (r *dns.Msg, err error) {
+	return dns.Exchange(m, a)
+}
+
+var defaultApi = &DefaultApi{}

@@ -1,10 +1,10 @@
 {
-    "host": "192.168.1.4:53",
-    "defaultDns": "8.8.8.8:53",
+    "host": "localhost:15353",
+    "default_dns": "8.8.8.8:53",
     "servers": {
         "google.com" : "8.8.8.8:53"
     },
     "domains": {
-        "test.com." : "8.8.8.8"
+        "**.test.com" : "127.0.0.1"
     }
 }

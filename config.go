@@ -7,8 +7,15 @@ import (
 	"time"
 )
 
+type DNSConfig struct {
+	Host       string  `json:"host"`
+	DefaultDns string  `json:"default_dns"`
+	Servers    HostMap `json:"servers"`
+	Domains    HostMap `json:"domains"`
+}
+
 type Config struct {
-	DNSConfigs      map[string]interface{}
+	DNSConfigs      DNSConfig
 	CacheExpiration time.Duration
 	UseOutbound     bool
 	LogLevel        string
@@ -22,10 +29,10 @@ func InitConfig() (Config, error) {
 	cliConfigs := flag.String("json-config", "", "config in json format")
 	flag.Parse()
 
-	dnsConfigs := make(map[string]interface{})
+	var dnsConfigs DNSConfig
 	if *cliConfigs == "" {
 		var err error
-		dnsConfigs, err = parseFile(*fileName)
+		err = parseFile(*fileName, &dnsConfigs)
 		if err != nil {
 			return Config{}, err
 		}
@@ -43,16 +50,15 @@ func InitConfig() (Config, error) {
 	}, nil
 }
 
-func parseFile(filePath string) (map[string]interface{}, error) {
-	fileContents := make(map[string]interface{})
+func parseFile(filePath string, v interface{}) error {
 	body, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := json.Unmarshal(body, &fileContents); err != nil {
-		return nil, err
+	if err := json.Unmarshal(body, v); err != nil {
+		return err
 	}
 
-	return fileContents, nil
+	return nil
 }
