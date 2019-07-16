@@ -19,15 +19,14 @@ type DnsProxy struct {
 	defaultServer string
 }
 
+var ErrNotFound = fmt.Errorf("not found")
+
 func (proxy *DnsProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
 	responseMsg := new(dns.Msg)
 	if len(requestMsg.Question) > 0 {
 		question := requestMsg.Question[0]
 
-		dnsServer := proxy.servers.Find(question.Name)
-		if dnsServer == "" {
-			dnsServer = proxy.defaultServer
-		}
+		dnsServer := proxy.dnsServer(question.Name)
 
 		switch question.Qtype {
 		case dns.TypeA:
@@ -49,6 +48,15 @@ func (proxy *DnsProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
 	return responseMsg, nil
 }
 
+func (proxy *DnsProxy) dnsServer(name string) string {
+	dnsServer := proxy.servers.Find(name)
+	if dnsServer.Alias != "" {
+		return dnsServer.Alias
+	}
+
+	return proxy.defaultServer
+}
+
 func (proxy *DnsProxy) processOtherTypes(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
 	queryMsg := new(dns.Msg)
 	requestMsg.CopyTo(queryMsg)
@@ -62,17 +70,22 @@ func (proxy *DnsProxy) processOtherTypes(dnsServer string, q *dns.Question, requ
 	if len(msg.Answer) > 0 {
 		return &msg.Answer[0], nil
 	}
-	return nil, fmt.Errorf("not found")
+	return nil, ErrNotFound
 }
 
 func (proxy *DnsProxy) processTypeA(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.RR, error) {
-	var ip string
+	localResolve := CompiledHost{Alias: q.Name}
 	cacheMsg, found := proxy.Cache.Get(q.Name)
 	if !found {
-		ip = proxy.domains.Find(q.Name)
+		for c := 0; localResolve.IP == nil && localResolve.Alias != ""; c++ {
+			if c >= 50 {
+				return nil, ErrNotFound
+			}
+			localResolve = proxy.domains.Find(localResolve.Alias)
+		}
 	}
 
-	if ip == "" && !found {
+	if localResolve.IP == nil && !found {
 		queryMsg := new(dns.Msg)
 		requestMsg.CopyTo(queryMsg)
 		queryMsg.Question = []dns.Question{*q}
@@ -89,15 +102,15 @@ func (proxy *DnsProxy) processTypeA(dnsServer string, q *dns.Question, requestMs
 
 	} else if found {
 		return cacheMsg.(*dns.RR), nil
-	} else if ip != "" {
-
-		answer, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, ip))
+	} else if localResolve.IP != nil {
+		answer, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, localResolve.IP))
 		if err != nil {
 			return nil, err
 		}
 		return &answer, nil
+
 	}
-	return nil, fmt.Errorf("not found")
+	return nil, ErrNotFound
 }
 
 func (proxy *DnsProxy) lookup(server string, requestMsg *dns.Msg) (r *dns.Msg, err error) {

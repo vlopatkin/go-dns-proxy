@@ -3,28 +3,46 @@ package main
 import (
 	"fmt"
 	"github.com/gobwas/glob"
+	"net"
 	"strings"
 )
 
 type HostMap map[string]string
 
 type CompiledHost struct {
-	Key   glob.Glob
-	Value string
+	IP    net.IP
+	Alias string
 }
 
-type CompiledHostMap []CompiledHost
+type CompiledHostEntry struct {
+	Key glob.Glob
+	CompiledHost
+}
+
+type CompiledHostMap []CompiledHostEntry
+
+func fixQName(name string) string {
+	if !strings.HasSuffix(name, ".") {
+		name += "."
+	}
+	return name
+}
 
 func (m HostMap) Compile() (c CompiledHostMap, err error) {
 	for k, v := range m {
-		if !strings.HasSuffix(k, ".") {
-			k = k + "."
-		}
+		k = fixQName(k)
 		g, err := glob.Compile(k, '.')
 		if err != nil {
 			return c, err
 		}
-		c = append(c, CompiledHost{g, v})
+
+		ip := net.ParseIP(v)
+		alias := v
+		if ip == nil {
+			alias = fixQName(v)
+		}
+
+		c = append(c, CompiledHostEntry{g, CompiledHost{ip, alias}})
 	}
 
 	return c, nil
@@ -38,11 +56,11 @@ func (m HostMap) ShouldCompile() CompiledHostMap {
 	return c
 }
 
-func (m CompiledHostMap) Find(name string) string {
+func (m CompiledHostMap) Find(name string) CompiledHost {
 	for _, v := range m {
 		if v.Key.Match(name) {
-			return v.Value
+			return v.CompiledHost
 		}
 	}
-	return ""
+	return CompiledHost{}
 }
