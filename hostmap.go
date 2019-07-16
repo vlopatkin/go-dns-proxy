@@ -64,3 +64,19 @@ func (m CompiledHostMap) Find(name string) CompiledHost {
 	}
 	return CompiledHost{}
 }
+
+func (m CompiledHost) Empty() bool {
+	return m.IP == nil && m.Alias == ""
+}
+
+func (m CompiledHost) Resolved() bool {
+	return m.IP != nil
+}
+
+func (m CompiledHost) Aliased() bool {
+	return m.IP == nil && m.Alias != ""
+}
+
+func (m CompiledHost) String() string {
+	return fmt.Sprintf("ip: %s, alias: %s", m.IP, m.Alias)
+}

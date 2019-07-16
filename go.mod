@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/gobwas/glob v0.2.3
+	github.com/goware/urlx v0.2.0
 	github.com/miekg/dns v1.1.15
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect

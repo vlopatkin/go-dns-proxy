@@ -162,3 +162,28 @@ func TestGetResponse_RedirectStopRecursion(t *testing.T) {
 	//assert
 	assert.EqualError(t, err, ErrNotFound.Error())
 }
+
+func TestGetResponse_Vars(t *testing.T) {
+	//arrange
+	resolution := "1.2.3.4"
+	mock := &DnsCalls{}
+	proxy := DnsProxy{
+		DnsApi: mock,
+		domains: HostMap{
+			"a.com": "var1",
+		}.ShouldCompile(),
+		vars: HostMap{
+			"var1": resolution,
+		}.ShouldCompile(),
+	}
+	msg := query("a.com")
+
+	//act
+	r, err := proxy.getResponse(msg)
+
+	//assert
+	assert.Nil(t, err)
+	if assert.Len(t, r.Answer, 1, "answers: %+v", r.Answer) {
+		assert.Equal(t, resolution, r.Answer[0].(*dns.A).A.String())
+	}
+}

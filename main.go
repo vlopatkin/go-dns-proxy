@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/goware/urlx"
+	"github.com/miekg/dns"
 	"log"
 	"net"
-
-	"github.com/miekg/dns"
 )
 
 func main() {
@@ -24,13 +24,6 @@ func main() {
 		log.Fatalf("Failed to parse servers: %s", err)
 	}
 
-	dnsProxy := DnsProxy{
-		Cache:         &dnsCache,
-		domains:       domains,
-		servers:       servers,
-		defaultServer: appConfigs.DNSConfigs.DefaultDns,
-	}
-
 	logger := NewLogger(appConfigs.LogLevel)
 	host := appConfigs.DNSConfigs.Host
 	if host == "" || appConfigs.UseOutbound {
@@ -39,6 +32,16 @@ func main() {
 			logger.Fatalf("Failed to get outbound address: %s\n ", err.Error())
 		}
 		host = fmt.Sprintf("%s:%d", ip, appConfigs.Port)
+	}
+
+	vars := HostMap{"HOST_IP": hostIP(host)}.ShouldCompile()
+
+	dnsProxy := DnsProxy{
+		Cache:         &dnsCache,
+		domains:       domains,
+		servers:       servers,
+		vars:          vars,
+		defaultServer: appConfigs.DNSConfigs.DefaultDns,
 	}
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
@@ -79,4 +82,12 @@ func main() {
 	if err != nil {
 		logger.Errorf("Failed to start server: %s\n ", err.Error())
 	}
+}
+
+func hostIP(host string) string {
+	addr, err := urlx.ResolveString(host)
+	if err != nil {
+		log.Fatalf("Failed to resolve host: %s", err)
+	}
+	return addr.IP.String()
 }
