@@ -16,6 +16,7 @@ type DnsProxy struct {
 	Cache         *Cache
 	domains       CompiledHostMap
 	servers       CompiledHostMap
+	vars          CompiledHostMap
 	defaultServer string
 }
 
@@ -77,15 +78,20 @@ func (proxy *DnsProxy) processTypeA(dnsServer string, q *dns.Question, requestMs
 	localResolve := CompiledHost{Alias: q.Name}
 	cacheMsg, found := proxy.Cache.Get(q.Name)
 	if !found {
-		for c := 0; localResolve.IP == nil && localResolve.Alias != ""; c++ {
+		for c := 0; localResolve.Aliased(); c++ {
 			if c >= 50 {
 				return nil, ErrNotFound
 			}
-			localResolve = proxy.domains.Find(localResolve.Alias)
+			domainResolve := proxy.domains.Find(localResolve.Alias)
+			if domainResolve.Empty() {
+				localResolve = proxy.vars.Find(localResolve.Alias)
+				break
+			}
+			localResolve = domainResolve
 		}
 	}
 
-	if localResolve.IP == nil && !found {
+	if !localResolve.Resolved() && !found {
 		queryMsg := new(dns.Msg)
 		requestMsg.CopyTo(queryMsg)
 		queryMsg.Question = []dns.Question{*q}
@@ -102,7 +108,7 @@ func (proxy *DnsProxy) processTypeA(dnsServer string, q *dns.Question, requestMs
 
 	} else if found {
 		return cacheMsg.(*dns.RR), nil
-	} else if localResolve.IP != nil {
+	} else if localResolve.Resolved() {
 		answer, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, localResolve.IP))
 		if err != nil {
 			return nil, err
