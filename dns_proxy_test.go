@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -22,26 +23,52 @@ func (c *DnsCalls) Exchange(m *dns.Msg, server string) (r *dns.Msg, err error) {
 	return &dns.Msg{Answer: []dns.RR{&dns.A{}}}, nil
 }
 
+func query(host string) *dns.Msg {
+	if !strings.HasSuffix(host, ".") {
+		host += "."
+	}
+	return &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Opcode:            dns.OpcodeQuery,
+			Rcode:             dns.RcodeSuccess,
+			RecursionDesired:  true,
+			AuthenticatedData: true,
+		},
+		Question: []dns.Question{
+			dns.Question{
+				Name:   host,
+				Qtype:  dns.TypeA,
+				Qclass: dns.ClassINET,
+			},
+		},
+	}
+}
+
+func TestGetResponse_DNSResolve(t *testing.T) {
+	//arrange
+	proxy := DnsProxy{defaultServer: "8.8.8.8:53"}
+	msg := query("google.com")
+
+	//act
+	r, err := proxy.getResponse(msg)
+
+	//assert
+	assert.Nil(t, err)
+	if assert.Len(t, r.Answer, 1) {
+		assert.IsType(t, &dns.A{}, r.Answer[0])
+	}
+}
+
 func TestGetResponse_LocalResolve(t *testing.T) {
 	//arrange
 	mock := &DnsCalls{}
 	host := "test.com"
 	resolution := "1.2.3.4"
 	proxy := DnsProxy{DnsApi: mock, domains: HostMap{host: resolution}.ShouldCompile()}
-	msg := dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Opcode: dns.OpcodeQuery,
-		},
-		Question: []dns.Question{
-			dns.Question{
-				Name:  "test.com.",
-				Qtype: dns.TypeA,
-			},
-		},
-	}
+	msg := query(host)
 
 	//act
-	r, err := proxy.getResponse(&msg)
+	r, err := proxy.getResponse(msg)
 
 	//assert
 	assert.Nil(t, err)
@@ -61,20 +88,10 @@ func TestGetResponse_RerouteRequest(t *testing.T) {
 		DnsApi:  mock,
 		servers: HostMap{host: server}.ShouldCompile(),
 	}
-	msg := dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Opcode: dns.OpcodeQuery,
-		},
-		Question: []dns.Question{
-			dns.Question{
-				Name:  "test.com.",
-				Qtype: dns.TypeA,
-			},
-		},
-	}
+	msg := query(host)
 
 	//act
-	proxy.getResponse(&msg)
+	proxy.getResponse(msg)
 
 	//assert
 	if assert.Len(t, mock.calls, 1) {
@@ -93,23 +110,55 @@ func TestGetResponse_GlobCheck(t *testing.T) {
 			"**.net": "5.6.7.8",
 		}.ShouldCompile(),
 	}
-	msg := dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Opcode: dns.OpcodeQuery,
-		},
-		Question: []dns.Question{
-			dns.Question{
-				Name:  "yo.test.com.",
-				Qtype: dns.TypeA,
-			},
-		},
-	}
+	msg := query("yo.test.com")
 
 	//act
-	r, _ := proxy.getResponse(&msg)
+	r, _ := proxy.getResponse(msg)
 
 	//assert
 	if assert.Len(t, r.Answer, 1, "answers: %+v", r.Answer) {
 		assert.Equal(t, resolution, r.Answer[0].(*dns.A).A.String())
 	}
+}
+
+func TestGetResponse_Redirect(t *testing.T) {
+	//arrange
+	mock := &DnsCalls{}
+	resolution := "1.2.3.4"
+	proxy := DnsProxy{
+		DnsApi: mock,
+		domains: HostMap{
+			"a.com": "b.net",
+			"b.net": resolution,
+		}.ShouldCompile(),
+	}
+	msg := query("a.com")
+
+	//act
+	r, err := proxy.getResponse(msg)
+
+	//assert
+	assert.Nil(t, err)
+	if assert.Len(t, r.Answer, 1, "answers: %+v", r.Answer) {
+		assert.Equal(t, resolution, r.Answer[0].(*dns.A).A.String())
+	}
+}
+
+func TestGetResponse_RedirectStopRecursion(t *testing.T) {
+	//arrange
+	mock := &DnsCalls{}
+	proxy := DnsProxy{
+		DnsApi: mock,
+		domains: HostMap{
+			"a.com": "b.net",
+			"b.net": "a.com",
+		}.ShouldCompile(),
+	}
+	msg := query("a.com")
+
+	//act
+	_, err := proxy.getResponse(msg)
+
+	//assert
+	assert.EqualError(t, err, ErrNotFound.Error())
 }
